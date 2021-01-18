@@ -1,6 +1,28 @@
-#pragma once
-
 #include "LCD_T-Bird3.h"
+
+//Hungarian letters
+static char
+	upperAA[8] = { 0x04, 0x04, 0x00, 0x0e, 0x11, 0x1f, 0x11, 0x11 }, //Á
+	lowerAA[8] = { 0x04, 0x04, 0x00, 0x0e, 0x01, 0x0f, 0x11, 0x0f }, //á
+	upperEE[8] = { 0x04, 0x04, 0x00, 0x1f, 0x10, 0x1e, 0x10, 0x1f }, //É
+	lowerEE[8] = { 0x04, 0x04, 0x00, 0x0e, 0x11, 0x1f, 0x10, 0x0e }, //é
+	upperII[8] = { 0x04, 0x04, 0x00, 0x0e, 0x04, 0x04, 0x04, 0x0e }, //Í
+	lowerII[8] = { 0x04, 0x04, 0x00, 0x04, 0x0c, 0x04, 0x04, 0x0e }, //í
+	upperOO[8] = { 0x04, 0x04, 0x0e, 0x11, 0x11, 0x11, 0x11, 0x0e }, //Ó
+	lowerOO[8] = { 0x04, 0x04, 0x00, 0x0e, 0x11, 0x11, 0x11, 0x0e }, //ó
+	upperDO[8] = { 0x0a, 0x0a, 0x0e, 0x11, 0x11, 0x11, 0x11, 0x0e }, //Õ
+	lowerDO[8] = { 0x0a, 0x0a, 0x00, 0x0e, 0x11, 0x11, 0x11, 0x0e }, //õ
+	upperUU[8] = { 0x04, 0x04, 0x11, 0x11, 0x11, 0x11, 0x13, 0x0d }, //Ú
+	lowerUU[8] = { 0x04, 0x04, 0x00, 0x11, 0x11, 0x11, 0x13, 0x0d }, //ú
+	upperDU[8] = { 0x0a, 0x0a, 0x11, 0x11, 0x11, 0x11, 0x13, 0x0d }, //Û
+	lowerDU[8] = { 0x0a, 0x0a, 0x00, 0x11, 0x11, 0x11, 0x13, 0x0d }, //û
+
+//Glyphs
+	ethConn[8] = { 0x00, 0xe0, 0x1b, 0x11, 0x11, 0x1f, 0x00, 0x00 },
+	  check[8] = { 0x00, 0x01, 0x03, 0x16, 0x1c, 0x08, 0x00, 0x00 },
+	  cross[8] = { 0x00, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x00, 0x00 },
+	upArrow[8] = { 0x00, 0x04, 0x04, 0x0E, 0x0E, 0x1F, 0x00, 0x00 },
+  downArrow[8] = { 0x00, 0x00, 0x1F, 0x0E, 0x0E, 0x04, 0x04, 0x00 };
 
 void _writeRegister(int reg, uint8_t data)
 {
@@ -61,7 +83,7 @@ void createChar(uint8_t location, char charmap[])
 		sendByte(charmap[i]);
 }
 
-void writeLcd(const char* str, int row)
+void writeLcd(char* str, int row)
 {
 	sendCmd(LCD_CMD_RETHOME);
 	switch (row)
@@ -72,14 +94,16 @@ void writeLcd(const char* str, int row)
 		case 3:	sendCmd(LCD_CMD_DDRAMAD + 0x50); break;
 	}
 
-	while (*str)
+	int i = 0;
+	while (i < 16 && *str)
 	{
 		sendByte(*str);
 		str++;
+		i++;
 	}
 }
 
-int writeLcdHun(const char* line0, const char* line1, const char* line2, const char* line3)
+int writeLcdHun(char* line0, const char* line1, const char* line2, const char* line3)
 {
 	char hunLetters[19] = {
 		0xc1, 0xc9, 0xcd,	//Á, É, Í,
@@ -99,17 +123,56 @@ int writeLcdHun(const char* line0, const char* line1, const char* line2, const c
 		lowerUU, lowerDU,    NULL,
 	0x00};
 	
-	int fcnt = 0;
-	char found[9];
+	int len[5] = {
+		0,
+		strlen(line0),
+		strlen(line1),
+		strlen(line2),
+		strlen(line3)
+	};
+	
+	int fcnt = 0, offset = 0;
+	char found[9], concat[65], subbuff[17];
 	memset(found, 0, 9);
+	memset(concat, 0, 65);
 	
+	strcpy(concat, line0);
+	strcat(concat, line1);
+	strcat(concat, line2);
+	strcat(concat, line3);
 	
+	for (int i = 0; concat[i] > 0; i++)
+	{
+		int index = _find(hunLetters, concat[i]);
+		if (index > 0)
+		{
+			if (replacement[index] != NULL)
+			{
+				found[fcnt] = index;
+				concat[i] = fcnt + 8;
+				fcnt++;
+			}
+			else
+			{
+				if (index == 5 || index == 14)
+					concat[i] = 0xef;
+				else
+					concat[i] = 0xf5;
+			}
+		}
+	}
+		
+	for (int i = 0; i < fcnt; i++)
+		createChar(i, replacement[found[i]]);
+	sendCmd(LCD_CMD_DDRAMAD);
 	
-	/*for (int i = 0, found[i] > 0; i++)
-		createChar(i, found[i]);
-	sendCmd(LCD_CMD_DDRAMAD);*/
-	
-	//writeLcd(hunLetters, 1);
+	for (int i = 0; i < 4; i++)
+	{
+		memset(subbuff, 0, 17);
+		memcpy(subbuff, &concat[len[i]] + offset, len[i + 1]);
+		writeLcd(subbuff, i);
+		offset += len[i];
+	}
 	
 	return fcnt;
 }
