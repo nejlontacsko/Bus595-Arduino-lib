@@ -47,8 +47,8 @@ void initLcd();
 
 void createChar(uint8_t, char*);
 
-void writeLcd(char*, int);
+void writeLcd(const char*, int);
 
-int writeLcdHun(char*, const char*, const char*, const char*);
+int writeLcdHun(const char*, const char*, const char*, const char*);
 
 #endif
